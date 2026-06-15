@@ -9,12 +9,12 @@ plugins {
 
 android {
     namespace = "com.advancedtictactoe.game"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.advancedtictactoe.game"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
 
@@ -36,8 +36,6 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
             isDebuggable = true
         }
         release {
@@ -51,20 +49,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-        }
-    }
-
-    flavorDimensions += "version"
-    productFlavors {
-        create("free") {
-            dimension = "version"
-            applicationIdSuffix = ".free"
-            versionNameSuffix = "-free"
-        }
-        create("premium") {
-            dimension = "version"
-            applicationIdSuffix = ".premium"
-            versionNameSuffix = "-premium"
         }
     }
 

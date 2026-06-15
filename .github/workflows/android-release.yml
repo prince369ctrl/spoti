@@ -101,7 +101,7 @@ jobs:
       - name: Build Debug APK
         working-directory: android-tictactoe
         run: |
-          ./gradlew assembleFreeDebug \
+          ./gradlew assembleDebug \
             --no-daemon \
             --stacktrace \
             -Dorg.gradle.jvmargs="-Xmx2560m -Xms512m"
@@ -110,7 +110,7 @@ jobs:
       - name: Build Release APK
         working-directory: android-tictactoe
         run: |
-          ./gradlew assembleFreeRelease \
+          ./gradlew assembleRelease \
             --no-daemon \
             --stacktrace \
             -Dorg.gradle.jvmargs="-Xmx2560m -Xms512m"
