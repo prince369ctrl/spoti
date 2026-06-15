@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer glow ring -->
+    <path
+        android:fillColor="#1A00F5FF"
+        android:pathData="M54,54m-46,0a46,46 0,1 1,92 0a46,46 0,1 1,-92 0"/>
+
+    <!-- X mark — player X (Neon Cyan) -->
+    <path
+        android:strokeColor="#00F5FF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M28,30 L52,54"/>
+    <path
+        android:strokeColor="#00F5FF"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:pathData="M52,30 L28,54"/>
+
+    <!-- O mark — player O (Neon Pink) -->
+    <path
+        android:strokeColor="#FF006E"
+        android:strokeWidth="7"
+        android:fillColor="#00000000"
+        android:strokeLineCap="round"
+        android:pathData="M68,54m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0"/>
+
+    <!-- Grid lines (subtle) -->
+    <path
+        android:strokeColor="#33FFFFFF"
+        android:strokeWidth="2"
+        android:pathData="M54,18 L54,90"/>
+    <path
+        android:strokeColor="#33FFFFFF"
+        android:strokeWidth="2"
+        android:pathData="M18,54 L90,54"/>
+</vector>

@@ -1,0 +1,201 @@
+name: Build & Pre-Release APK
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version name (e.g. 1.0.0-beta1)'
+        required: true
+        default: '1.0.0-dev'
+
+jobs:
+  build:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Java 17 ──────────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # ── Android SDK ───────────────────────────────────────────────────────────
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # ── Bootstrap Gradle Wrapper jar ─────────────────────────────────────────
+      # The .jar binary cannot be committed as text; we download it here.
+      - name: Bootstrap Gradle wrapper jar
+        working-directory: android-tictactoe
+        run: |
+          GRADLE_VERSION="8.7"
+          mkdir -p gradle/wrapper
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "Downloading gradle-wrapper.jar for Gradle $GRADLE_VERSION..."
+            curl -fsSL \
+              "https://raw.githubusercontent.com/gradle/gradle/v${GRADLE_VERSION}.0/gradle/wrapper/gradle-wrapper.jar" \
+              -o gradle/wrapper/gradle-wrapper.jar
+            echo "Downloaded: $(du -h gradle/wrapper/gradle-wrapper.jar)"
+          else
+            echo "gradle-wrapper.jar already present."
+          fi
+          chmod +x gradlew
+
+      # ── Gradle cache ──────────────────────────────────────────────────────────
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android-tictactoe/**/*.gradle.kts', 'android-tictactoe/gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # ── Decode keystore (if provided via secrets) ────────────────────────────
+      - name: Decode Keystore
+        if: ${{ env.HAS_KEYSTORE == 'true' }}
+        env:
+          HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode \
+            > android-tictactoe/app/release.jks
+          echo "KEYSTORE_FILE=$GITHUB_WORKSPACE/android-tictactoe/app/release.jks" \
+            >> $GITHUB_ENV
+
+      # ── Determine version ─────────────────────────────────────────────────────
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="${{ github.event.inputs.version_name }}"
+          fi
+          BUILD_NUM=${{ github.run_number }}
+          echo "version=$VERSION"      >> $GITHUB_OUTPUT
+          echo "build_num=$BUILD_NUM"  >> $GITHUB_OUTPUT
+          echo "Version: $VERSION  Build: $BUILD_NUM"
+
+      # ── Patch versionCode + versionName ──────────────────────────────────────
+      - name: Patch version in build.gradle.kts
+        working-directory: android-tictactoe
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD_NUM="${{ steps.version.outputs.build_num }}"
+          sed -i "s/versionCode = 1/versionCode = ${BUILD_NUM}/" app/build.gradle.kts
+          sed -i "s/versionName = \"1.0.0\"/versionName = \"${VERSION}\"/" app/build.gradle.kts
+          echo "Patched: versionCode=$BUILD_NUM versionName=$VERSION"
+
+      # ── Build DEBUG APK ───────────────────────────────────────────────────────
+      - name: Build Debug APK
+        working-directory: android-tictactoe
+        run: |
+          ./gradlew assembleFreeDebug \
+            --no-daemon \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx2560m -Xms512m"
+
+      # ── Build RELEASE APK ─────────────────────────────────────────────────────
+      - name: Build Release APK
+        working-directory: android-tictactoe
+        run: |
+          ./gradlew assembleFreeRelease \
+            --no-daemon \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx2560m -Xms512m"
+        env:
+          KEYSTORE_FILE:     ${{ env.KEYSTORE_FILE }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:      ${{ secrets.KEY_PASSWORD }}
+
+      # ── Collect & rename APKs ─────────────────────────────────────────────────
+      - name: Collect APKs
+        id: collect
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release-artifacts
+          while IFS= read -r apk; do
+            FILENAME=$(basename "$apk")
+            # e.g. app-free-debug.apk → AdvancedTicTacToe-1.0.0-free-debug.apk
+            NEWNAME="AdvancedTicTacToe-${VERSION}-${FILENAME#app-}"
+            cp "$apk" "release-artifacts/$NEWNAME"
+            echo "Copied: $NEWNAME"
+          done < <(find android-tictactoe/app/build/outputs/apk -name "*.apk")
+          ls -lh release-artifacts/
+
+      # ── Upload artifact (for workflow runs without a tag) ─────────────────────
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks-v${{ steps.version.outputs.version }}-build${{ steps.version.outputs.build_num }}
+          path: release-artifacts/*.apk
+          retention-days: 30
+
+      # ── Create GitHub Pre-Release ─────────────────────────────────────────────
+      - name: Create GitHub Pre-Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name != '' && github.ref_name || format('v{0}', steps.version.outputs.version) }}
+          name: "🎮 Advanced Tic-Tac-Toe v${{ steps.version.outputs.version }} — Pre-Release"
+          prerelease: true
+          draft: false
+          generate_release_notes: true
+          files: release-artifacts/*.apk
+          body: |
+            ## 🎮 Advanced Tic-Tac-Toe — v${{ steps.version.outputs.version }}
+            > ⚠️ **Pre-Release** — Tested internally, not yet production-hardened.
+
+            ### ✨ What's in this build
+            | Feature | Details |
+            |---------|---------|
+            | **3D UI** | Glassmorphism, neon glow, particle explosions |
+            | **AI Engine** | Minimax + Alpha-Beta Pruning (5 difficulty levels) |
+            | **Board Sizes** | 3×3 · 4×4 · 5×5 · 6×6 · Custom |
+            | **Game Modes** | vs AI · Local 2P · Online · Tournament · Quick Match |
+            | **Achievements** | 50+ with XP & coin rewards |
+            | **Themes** | 8 themes: Cyberpunk · Galaxy · Fire · Ice + more |
+            | **Ranks** | Bronze → Silver → Gold → … → Legend |
+            | **Daily Rewards** | Login streaks · XP/coin bonuses |
+            | **Onboarding** | 7-page interactive tutorial |
+            | **Controls** | Undo · Redo · Hint · Particle effects · Haptic feedback |
+
+            ### 📲 Install
+            1. Download `AdvancedTicTacToe-*-free-release.apk` below
+            2. On your device: **Settings → Security → Install unknown apps**
+            3. Open the APK → Install → Play!
+
+            ### 📋 Requirements
+            - Android **8.0+** (API 26)
+            - ~50 MB storage
+
+            ---
+            **Build:** #${{ github.run_number }} | **Commit:** `${{ github.sha }}`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Summary
+    runs-on: ubuntu-latest
+    needs: build
+    if: always()
+    steps:
+      - name: Result
+        run: |
+          if [ "${{ needs.build.result }}" = "success" ]; then
+            echo "✅  Build succeeded — pre-release APK published!"
+          else
+            echo "❌  Build failed — check the 'build' job logs above."
+            exit 1
+          fi
