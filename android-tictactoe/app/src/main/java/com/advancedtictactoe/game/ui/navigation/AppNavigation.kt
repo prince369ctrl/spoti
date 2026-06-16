@@ -64,11 +64,13 @@ fun AppNavigation() {
         }
 
         composable(Screen.Onboarding.route) {
-            OnboardingScreen {
-                navController.navigate(Screen.Home.route) {
-                    popUpTo(Screen.Onboarding.route) { inclusive = true }
+            OnboardingScreen(
+                onFinish = {
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
                 }
-            }
+            )
         }
 
         composable(Screen.Home.route) {

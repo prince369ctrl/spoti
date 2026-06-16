@@ -155,16 +155,15 @@ private fun XMark(color: Color, isWinning: Boolean) {
             strokeCap = StrokeCap.Round
         }
         if (glowRadius > 0) {
-            drawIntoCanvas { canvas ->
-                val glowPaint = android.graphics.Paint().apply {
-                    this.color = color.copy(alpha = 0.4f).toArgb()
-                    this.maskFilter = android.graphics.BlurMaskFilter(
-                        glowRadius, android.graphics.BlurMaskFilter.Blur.NORMAL
-                    )
-                }
-                canvas.nativeCanvas.drawLine(0f, 0f, w * progress, h * progress, glowPaint)
-                canvas.nativeCanvas.drawLine(w, 0f, 0f, h * progress, glowPaint)
+            val nativeCanvas = drawContext.canvas.nativeCanvas
+            val glowPaint = android.graphics.Paint().apply {
+                this.color = color.copy(alpha = 0.4f).toArgb()
+                this.maskFilter = android.graphics.BlurMaskFilter(
+                    glowRadius, android.graphics.BlurMaskFilter.Blur.NORMAL
+                )
             }
+            nativeCanvas.drawLine(0f, 0f, w * progress, h * progress, glowPaint)
+            nativeCanvas.drawLine(w, 0f, 0f, h * progress, glowPaint)
         }
         drawLine(color, Offset(0f, 0f), Offset(w * progress, h * progress), strokeW, StrokeCap.Round)
         drawLine(color, Offset(w, 0f), Offset(0f, h * progress), strokeW, StrokeCap.Round)
@@ -180,17 +179,16 @@ private fun OMark(color: Color, isWinning: Boolean) {
         val radius = size.minDimension / 2f
         val strokeW = radius / 3f
         if (isWinning) {
-            drawIntoCanvas { canvas ->
-                val glowPaint = android.graphics.Paint().apply {
-                    this.color = color.copy(alpha = 0.35f).toArgb()
-                    this.style = android.graphics.Paint.Style.STROKE
-                    this.strokeWidth = strokeW * 2
-                    this.maskFilter = android.graphics.BlurMaskFilter(
-                        20f, android.graphics.BlurMaskFilter.Blur.NORMAL
-                    )
-                }
-                canvas.nativeCanvas.drawCircle(center.x, center.y, radius, glowPaint)
+            val nativeCanvas = drawContext.canvas.nativeCanvas
+            val glowPaint = android.graphics.Paint().apply {
+                this.color = color.copy(alpha = 0.35f).toArgb()
+                this.style = android.graphics.Paint.Style.STROKE
+                this.strokeWidth = strokeW * 2
+                this.maskFilter = android.graphics.BlurMaskFilter(
+                    20f, android.graphics.BlurMaskFilter.Blur.NORMAL
+                )
             }
+            nativeCanvas.drawCircle(center.x, center.y, radius, glowPaint)
         }
         drawArc(
             color       = color,
